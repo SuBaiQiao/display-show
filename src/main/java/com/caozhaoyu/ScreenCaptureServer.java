@@ -4,16 +4,19 @@ import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
+import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Caozhaoyu
@@ -21,6 +24,8 @@ import java.util.TimerTask;
 public class ScreenCaptureServer extends WebSocketServer {
     private final Robot robot;
     private final List<WebSocket> clients;
+
+    private final ExecutorService imageProcessingPool = Executors.newFixedThreadPool(2);
 
     public ScreenCaptureServer(int port) throws AWTException {
         super(new InetSocketAddress(port));
@@ -47,7 +52,7 @@ public class ScreenCaptureServer extends WebSocketServer {
 
     @Override
     public void onMessage(WebSocket webSocket, String s) {
-
+        // 暂时不会从客户端发信息过来
     }
 
     @Override
@@ -61,22 +66,21 @@ public class ScreenCaptureServer extends WebSocketServer {
     }
 
     public void startScreenCapture(int interval) {
-        Timer timer = new Timer();
-        timer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-                Rectangle screenRectangle = new Rectangle(screenSize);
-                BufferedImage screenImage = robot.createScreenCapture(screenRectangle);
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.scheduleAtFixedRate(() -> {
+            Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+            Rectangle screenRectangle = new Rectangle(screenSize);
+            BufferedImage screenImage = robot.createScreenCapture(screenRectangle);
+            imageProcessingPool.submit(() -> {
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 try {
-                    javax.imageio.ImageIO.write(screenImage, "png", outputStream);
+                    ImageIO.write(screenImage, "jpeg", outputStream);
                     broadcast(outputStream.toByteArray());
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-            }
-        }, 0, interval);
+            });
+        }, 0, interval, TimeUnit.MILLISECONDS);
     }
 
     @Override
