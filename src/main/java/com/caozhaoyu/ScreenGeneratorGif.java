@@ -23,6 +23,7 @@ public class ScreenGeneratorGif {
         int duration = 3;
         // 每帧间隔时间（毫秒），对应约10帧/秒
         int delay = 100;
+        // 输出文件名
         String fileName = "output.gif";
 
         try {
